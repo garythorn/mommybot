@@ -7,7 +7,7 @@ const request = require('request');
 const rp = require('request-promise');
 const _ = require('lodash');
 
-const botUserId = "user/1470361823098000000"
+const bot_user_id = "user/1470361823098000000"
 const botAuth = {
   grant_type: 'password',
   username: 'mommybot',
@@ -15,7 +15,7 @@ const botAuth = {
 };
 const commands = {
   'raffle': {callback: start_raffle, optional: ['raffle_length', 'num_winners']},
-  'enter': {callback: enter_raffle, arguments: ['username']}
+  'enter': {callback: enter_raffle}
 }
 
 let chatRoomId = process.argv[2];
@@ -26,7 +26,7 @@ let previous_winners = {};
 let num_winners = 1;
 let raffle_going = false;
 
-startBot();
+start_bot();
 
 // getAuthTokenPromise()
 //   .then(token => {
@@ -34,13 +34,13 @@ startBot();
 //   })
 
 // getAuthToken(credentials)
-//   .then(setHeaders)
+//   .then(set_headers)
 //   .then(joinChatroom)
 
-function startBot() {
+function start_bot() {
   getAuthToken();
   // .then(token => {
-  //   setHeaders(token);
+  //   set_headers(token);
   // })
   // .then
 }
@@ -74,17 +74,17 @@ function getAuthToken() {
       if(body) {
         let info = JSON.parse(body);
         let token = info.access_token;
-        setHeaders(token);
-        joinChatRoom();
+        set_headers(token);
+        join_chatroom();
       }
   });
 }
 
-function setHeaders(token) {
+function set_headers(token) {
   headers.Authorization = 'Bearer ' + token;
 }
 
-function joinChatRoom() {
+function join_chatroom() {
   request.put(
     {
       url: chatRoomUrl + 'presence',
@@ -93,13 +93,13 @@ function joinChatRoom() {
       if(body) {
         let info = JSON.parse(body);
         if(info.message === "success") {
-          getSubscriberId();
+          get_subscriber_id();
         }
       }
   });
 }
 
-function getChatMessages() {
+function get_messages() {
   request.get(
     {
       url: chatRoomUrl + 'chatmessage'
@@ -109,51 +109,73 @@ function getChatMessages() {
         let info = JSON.parse(body);
         let entries = info.result.entries;
         _.each(entries, entry => {
-          parseMessage(entry);
+          parse_message(entry);
         });
       }
   });
 }
 
-function parseMessage(entry) {
-  if (!entry) return;
-  let messageData = entry.chatroomActivityData.chatroomMessageActivity.chatroomMessageActivityData;
-  if (messageData.senderId == botUserId) return;
+// I probably don't need this function
+function get_user_info(data) {
+  data = data || {};
 
-  let message = messageData.text.toLowerCase().trim();
-  if (!_.startsWith(message, '!mommybot')) return;
 
-  let tokens = message.split(" ");
-  tokens.shift();
-  let command = commands[tokens.shift()];
-  let args = {};
-  let counter = 0;
-  if (_.isEmpty(command)) return;
-
-  if (command.arguments) {
-    while (counter !== command.arguments.length) {
-      if (tokens.length === 0) break;
-      args[command.arguments[counter]] = tokens.shift();
-      counter++;
-    }
-
-    if (counter < command.arguments.length) {
-      return;
-    }
+  return {
+    username: data.name,
+    mongoid: data.mongoid,
+    profile_logo: data.profileLogoSmall,
+    subtitle: data.subtitle,
+    trust_all_links: data.trustAllLinks
   }
-
-  if (command.optional) {
-    if (tokens.length !== 0 && command.optional) {
-      command.optional.forEach(function(o) {
-        args[o] = tokens.shift();
-      })
-    }
-  }
-
-  command.callback(args)
 }
 
-function hideMessage(messageId) {
+function parse_message(data) {
+  data = data || {};
+  let json = data.json;
+  let hydrations = data.hydrations;
+
+  if (json && json.chatroomActivityType === 'Message') {
+    let messageData = json.chatroomActivityData.chatroomMessageActivity.chatroomMessageActivityData;
+    if (messageData.senderId == bot_user_id) return;
+
+    let message = messageData.text.toLowerCase().trim();
+    if (!_.startsWith(message, '!mommybot')) return;
+
+    // clean this up
+    let tokens = message.split(" ");
+    tokens.shift();
+    let command = commands[tokens.shift()];
+    let args = {
+      user: get_user_info(hydrations[messageData.senderId])
+    };
+    let counter = 0;
+    if (_.isEmpty(command)) return;
+
+    if (command.arguments) {
+      while (counter !== command.arguments.length) {
+        if (tokens.length === 0) break;
+        args[command.arguments[counter]] = tokens.shift();
+        counter++;
+      }
+
+      if (counter < command.arguments.length) {
+        return;
+      }
+    }
+
+    if (command.optional) {
+      if (tokens.length !== 0 && command.optional) {
+        command.optional.forEach(function(o) {
+          args[o] = tokens.shift();
+        })
+      }
+    }
+
+    command.callback(args)
+  }
+}
+
+function hide_message(messageId) {
   request.put(
     {
       url: chatRoomUrl + messageId,
@@ -165,7 +187,7 @@ function hideMessage(messageId) {
   });
 }
 
-function getSubscriberId() {
+function get_subscriber_id() {
   request.post(
     {
       url: 'https://api.mobcrush.com/api/pubsub/subscriber',
@@ -174,12 +196,12 @@ function getSubscriberId() {
     (err, response, body) => {
       if(body) {
         let info = JSON.parse(body);
-        subscribeToTopics(info.result.subscriberId);
+        subscribe_to_topics(info.result.subscriberId);
       }
   });
 }
 
-function subscribeToTopics(subscriberId) {
+function subscribe_to_topics(subscriberId) {
   request.put(
     {
       url: 'https://api.mobcrush.com/api/pubsub/' + subscriberId + '/topic/message/chatroom/' + chatRoomId + '?k=json&k=hydrations_json'
@@ -187,26 +209,25 @@ function subscribeToTopics(subscriberId) {
     (err, response, body) => {
       if(body) {
         let info = JSON.parse(body);
-        startLongPolling(subscriberId);
+        start_long_polling(subscriberId);
       }
   });
 }
 
-function startLongPolling(subscriberId) {
+function start_long_polling(subscriberId) {
   request.delete(
     {
       url: 'https://api.mobcrush.com/api/pubsub/' + subscriberId + '/articles/head'
     },
     (err, response, body) => {
       if(body) {
-        let info = JSON.parse(body);
-        //console.log(info)
-        if(info.result.data.json) {
-          let msgEvent = JSON.parse(info.result.data.json);
-          parseMessage(msgEvent);
-        }
+        let data = JSON.parse(body);
+        parse_message({
+          json: JSON.parse(_.get(data, 'result.data.json', '{}')),
+          hydrations: JSON.parse(_.get(data, 'result.data.hydrations_json', '{}'))
+        });
       }
-      startLongPolling(subscriberId);
+      start_long_polling(subscriberId);
   });
 }
 
@@ -222,34 +243,42 @@ function send_message(text) {
 }
 
 function start_raffle(options) {
+  if (raffle_going) return;
+
   options = options || {};
   let raffle_length = options.raffle_length * 1000 || 60000;
   num_winners = options.num_winners || 1;
-  contestants = [];
 
-  send_message('Starting the Raffle');
-  send_message('Enter the raffle by typing: !mommybot enter <username>')
-
+  send_message('Starting the Raffle!\nEnter the raffle by typing: !mommybot enter')
   raffle_going = true;
-
   setTimeout(end_raffle, raffle_length);
 }
 
 function enter_raffle(options) {
-  if (!raffle_going) return;
+  if (!raffle_going) return send_message('Raffle not currently going');
   options = options || {};
+  let user = options.user;
 
   // v2 will grab username from hydrations
-  if (!options.username) {
-    send_message('Username required')
+  if (!user.username) {
+    // send_message('Unable to resolve username')
+    console.log('couldnt get username');
   }
-  send_message(options.username + ' entered the raffle');
-  contestants.push(options.username);
+  send_message(user.username + ' entered the raffle');
+  contestants.push(user.username);
 }
 
 function end_raffle() {
   let winners = _.sampleSize(contestants, num_winners);
-  let message = 'Winners of the raffle are ' + winners.join(', ') + '.';
-  raffle_going = false;
+  let message = '';
+  if (num_winners === 1) {
+    message = 'Winner of the raffle is ' + winners[0] + '.';
+  } else {
+    message = 'Winners of the raffle are ' + winners.join(', ') + '.';
+  }
+
   send_message(message);
+
+  contestants = [];
+  raffle_going = false;
 }
