@@ -116,13 +116,11 @@ function getChatMessages() {
 }
 
 function parseMessage(entry) {
-  console.log('message received');
   if (!entry) return;
   let messageData = entry.chatroomActivityData.chatroomMessageActivity.chatroomMessageActivityData;
   if (messageData.senderId == botUserId) return;
 
   let message = messageData.text.toLowerCase().trim();
-  console.log(message)
   if (!_.startsWith(message, '!mommybot')) return;
 
   let tokens = message.split(" ");
@@ -130,7 +128,6 @@ function parseMessage(entry) {
   let command = commands[tokens.shift()];
   let args = {};
   let counter = 0;
-  console.log(command);
   if (_.isEmpty(command)) return;
 
   if (command.arguments) {
