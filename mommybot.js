@@ -3,21 +3,28 @@
 // jscs:disable
 'use strict';
 
-let request = require('request');
-let rp = require('request-promise');
-let _ = require('underscore');
+const request = require('request');
+const rp = require('request-promise');
+const _ = require('lodash');
 
-let botUserId = "user/1470361823098000000"
-
-let botAuth = {
+const botUserId = "user/1470361823098000000"
+const botAuth = {
   grant_type: 'password',
   username: 'mommybot',
   password: '5XP1h38&4lD55o37cl#T'
 };
+const commands = {
+  'raffle': {callback: start_raffle, optional: ['raffle_length', 'num_winners']},
+  'enter': {callback: enter_raffle, arguments: ['username']}
+}
 
+let chatRoomId = process.argv[2];
 let headers = {};
-let chatRoomId = 1464010014814000000;
 let chatRoomUrl = 'http://api.mobcrush.com/api/chatroom/' + chatRoomId + '/';
+let contestants = [];
+let previous_winners = {};
+let num_winners = 1;
+let raffle_going = false;
 
 startBot();
 
@@ -109,20 +116,44 @@ function getChatMessages() {
 }
 
 function parseMessage(entry) {
+  console.log('message received');
   if (!entry) return;
   let messageData = entry.chatroomActivityData.chatroomMessageActivity.chatroomMessageActivityData;
-  if (messageData.senderId == botUserId) {
-    return;
-  }
-  let message = messageData.text.toLowerCase();
-  let length = bannedWords.length;
-  while(length--) {
-    let word = bannedWords[length];
-    if(message.indexOf(word) != -1) {
-      hideMessage(messageData.messageId);
-      sendMessage('You can\'t say "' + word + '"!');
+  if (messageData.senderId == botUserId) return;
+
+  let message = messageData.text.toLowerCase().trim();
+  console.log(message)
+  if (!_.startsWith(message, '!mommybot')) return;
+
+  let tokens = message.split(" ");
+  tokens.shift();
+  let command = commands[tokens.shift()];
+  let args = {};
+  let counter = 0;
+  console.log(command);
+  if (_.isEmpty(command)) return;
+
+  if (command.arguments) {
+    while (counter !== command.arguments.length) {
+      if (tokens.length === 0) break;
+      args[command.arguments[counter]] = tokens.shift();
+      counter++;
+    }
+
+    if (counter < command.arguments.length) {
+      return;
     }
   }
+
+  if (command.optional) {
+    if (tokens.length !== 0 && command.optional) {
+      command.optional.forEach(function(o) {
+        args[o] = tokens.shift();
+      })
+    }
+  }
+
+  command.callback(args)
 }
 
 function hideMessage(messageId) {
@@ -182,7 +213,7 @@ function startLongPolling(subscriberId) {
   });
 }
 
-function sendMessage(text) {
+function send_message(text) {
   request.post(
     {
       url: chatRoomUrl + 'chatmessage',
@@ -193,15 +224,35 @@ function sendMessage(text) {
     });
 }
 
-function raffle(options) {
+function start_raffle(options) {
   options = options || {};
-  if (!options.numWinners) {
-    options.numWinners = 1;
-  }
+  let raffle_length = options.raffle_length * 1000 || 60000;
+  num_winners = options.num_winners || 1;
+  contestants = [];
 
-  var winners = lodash.sampleSize(lodash.values(vm.presentUsers), options.numWinners);
-  winners = winners.map(function(winner) {
-    return winner.username;
-  })
-  var message = 'Winners of the raffle are ' + winners.join(', ') + '.';
+  send_message('Starting the Raffle');
+  send_message('Enter the raffle by typing: !mommybot enter <username>')
+
+  raffle_going = true;
+
+  setTimeout(end_raffle, raffle_length);
+}
+
+function enter_raffle(options) {
+  if (!raffle_going) return;
+  options = options || {};
+
+  // v2 will grab username from hydrations
+  if (!options.username) {
+    send_message('Username required')
+  }
+  send_message(options.username + ' entered the raffle');
+  contestants.push(options.username);
+}
+
+function end_raffle() {
+  let winners = _.sampleSize(contestants, num_winners);
+  let message = 'Winners of the raffle are ' + winners.join(', ') + '.';
+  raffle_going = false;
+  send_message(message);
 }
