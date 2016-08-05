@@ -8,7 +8,7 @@ const rp = require('request-promise');
 const _ = require('lodash');
 
 const bot_user_id = "user/1470361823098000000"
-const botAuth = {
+const bot_auth = {
   grant_type: 'password',
   username: 'mommybot',
   password: '5XP1h38&4lD55o37cl#T'
@@ -18,9 +18,9 @@ const commands = {
   'enter': {callback: enter_raffle}
 }
 
-let chatRoomId = process.argv[2];
+let chatroom_id = process.argv[2];
 let headers = {};
-let chatRoomUrl = 'http://api.mobcrush.com/api/chatroom/' + chatRoomId + '/';
+let chatroom_url = 'http://api.mobcrush.com/api/chatroom/' + chatroom_id + '/';
 let contestants = [];
 let previous_winners = {};
 let num_winners = 1;
@@ -28,29 +28,29 @@ let raffle_going = false;
 
 start_bot();
 
-// getAuthTokenPromise()
+// get_auth_tokenPromise()
 //   .then(token => {
 //     console.log(token)
 //   })
 
-// getAuthToken(credentials)
+// get_auth_token(credentials)
 //   .then(set_headers)
 //   .then(joinChatroom)
 
 function start_bot() {
-  getAuthToken();
+  get_auth_token();
   // .then(token => {
   //   set_headers(token);
   // })
   // .then
 }
 
-function getAuthTokenPromise() {
+function get_auth_token_promise() {
   return new Promise((resolve, reject) => {
     request.post(
       {
         url: 'http://6ef1f4b5-d19c-49f2-9ef9-edd0193a49c4:a@api.mobcrush.com/oauth2/token',
-        form: botAuth
+        form: bot_auth
       },
       (err, response, body) => {
         if (body) {
@@ -64,11 +64,11 @@ function getAuthTokenPromise() {
   })
 }
 
-function getAuthToken() {
+function get_auth_token() {
   request.post(
     {
       url: 'http://6ef1f4b5-d19c-49f2-9ef9-edd0193a49c4:a@api.mobcrush.com/oauth2/token',
-      form: botAuth
+      form: bot_auth
     },
     (err, response, body) => {
       if(body) {
@@ -87,7 +87,7 @@ function set_headers(token) {
 function join_chatroom() {
   request.put(
     {
-      url: chatRoomUrl + 'presence',
+      url: chatroom_url + 'presence',
       headers: headers
     }, (err, response, body) => {
       if(body) {
@@ -102,7 +102,7 @@ function join_chatroom() {
 function get_messages() {
   request.get(
     {
-      url: chatRoomUrl + 'chatmessage'
+      url: chatroom_url + 'chatmessage'
     },
     (err, response, body) => {
       if(body) {
@@ -118,7 +118,6 @@ function get_messages() {
 // I probably don't need this function
 function get_user_info(data) {
   data = data || {};
-
 
   return {
     username: data.name,
@@ -178,7 +177,7 @@ function parse_message(data) {
 function hide_message(messageId) {
   request.put(
     {
-      url: chatRoomUrl + messageId,
+      url: chatroom_url + messageId,
       form: {
         message_text: "",
         parent_event_id: messageId
@@ -204,7 +203,7 @@ function get_subscriber_id() {
 function subscribe_to_topics(subscriberId) {
   request.put(
     {
-      url: 'https://api.mobcrush.com/api/pubsub/' + subscriberId + '/topic/message/chatroom/' + chatRoomId + '?k=json&k=hydrations_json'
+      url: 'https://api.mobcrush.com/api/pubsub/' + subscriberId + '/topic/message/chatroom/' + chatroom_id + '?k=json&k=hydrations_json'
     },
     (err, response, body) => {
       if(body) {
@@ -234,7 +233,7 @@ function start_long_polling(subscriberId) {
 function send_message(text) {
   request.post(
     {
-      url: chatRoomUrl + 'chatmessage',
+      url: chatroom_url + 'chatmessage',
       form: {
         message_text: text
       },
