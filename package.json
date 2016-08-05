@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "config": "^1.21.0",
     "lodash": "^4.14.1",
     "request": "^2.74.0",
     "request-promise": "^4.1.0"

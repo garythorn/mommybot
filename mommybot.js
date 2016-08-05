@@ -6,12 +6,13 @@
 const request = require('request');
 const rp = require('request-promise');
 const _ = require('lodash');
+const config = require('config');
 
 const bot_user_id = "user/1470361823098000000"
 const bot_auth = {
   grant_type: 'password',
-  username: 'mommybot',
-  password: '5XP1h38&4lD55o37cl#T'
+  username: config.get('bot.username'),
+  password: config.get('bot.password')
 };
 const commands = {
   'raffle': {callback: start_raffle, optional: ['raffle_length', 'num_winners']},
