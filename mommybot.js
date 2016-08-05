@@ -11,8 +11,8 @@ const config = require('config');
 const bot_user_id = "user/1470361823098000000"
 const bot_auth = {
   grant_type: 'password',
-  username: config.get('bot.username'),
-  password: config.get('bot.password')
+  username: config.bot.username,
+  password: config.bot.password
 };
 const commands = {
   'raffle': {callback: start_raffle, optional: ['raffle_length', 'num_winners']},
